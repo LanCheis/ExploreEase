@@ -9,6 +9,7 @@ export interface Place {
   lat: number | null;
   lng: number | null;
   price_level: number | null;
+  rating: number | null;
   image_url: string | null;
   created_at: string;
   updated_at: string;

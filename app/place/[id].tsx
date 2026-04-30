@@ -1,7 +1,10 @@
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Image, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useFavoriteIds, useToggleFavorite } from '@/hooks/useFavorites';
 import { usePlace } from '@/hooks/usePlaces';
+import { useAuthStore } from '@/stores/auth';
 import type { PlaceCategory } from '@/types/place';
 
 const CATEGORY_LABEL: Record<PlaceCategory, string> = {
@@ -12,7 +15,12 @@ const CATEGORY_LABEL: Record<PlaceCategory, string> = {
 
 export default function PlaceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const userId = useAuthStore((s) => s.session?.user.id);
   const { data: place, isLoading, isError, error } = usePlace(id);
+  const { data: favoriteIds = [] } = useFavoriteIds();
+  const { mutate: toggleFavorite } = useToggleFavorite();
+
+  const isFavorite = !!id && favoriteIds.includes(id);
 
   if (isLoading) {
     return (
@@ -34,7 +42,26 @@ export default function PlaceDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: place.name }} />
+      <Stack.Screen
+        options={{
+          title: place.name,
+          headerRight: userId
+            ? () => (
+                <Pressable
+                  onPress={() => toggleFavorite({ placeId: place.id, isFav: isFavorite })}
+                  style={{ marginRight: 4 }}
+                  hitSlop={8}
+                >
+                  <FontAwesome
+                    name={isFavorite ? 'heart' : 'heart-o'}
+                    size={20}
+                    color={isFavorite ? '#e11d48' : '#64748b'}
+                  />
+                </Pressable>
+              )
+            : undefined,
+        }}
+      />
       <ScrollView className="flex-1 bg-slate-50">
         {place.image_url ? (
           <Image
@@ -63,9 +90,7 @@ export default function PlaceDetailScreen() {
             <Text className="text-sm text-slate-500">{place.address}</Text>
           ) : null}
           {place.description ? (
-            <Text className="text-base leading-6 text-slate-700">
-              {place.description}
-            </Text>
+            <Text className="text-base leading-6 text-slate-700">{place.description}</Text>
           ) : null}
         </View>
       </ScrollView>

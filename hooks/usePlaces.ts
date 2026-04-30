@@ -1,17 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
-import { getPlaceById, getPlaces } from '@/lib/places';
+import { getPlaceById, getPlacesPage } from '@/lib/places';
+import type { PlacesQueryParams } from '@/lib/places';
 
-export function usePlaces() {
-  return useQuery({
-    queryKey: ['places'],
-    queryFn: getPlaces,
+export function usePlacesInfinite(params: Omit<PlacesQueryParams, 'page'>) {
+  return useInfiniteQuery({
+    queryKey: ['places', params],
+    queryFn: ({ pageParam }) => getPlacesPage({ ...params, page: pageParam }),
+    getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
+    initialPageParam: 0,
   });
 }
 
 export function usePlace(id: string | undefined) {
   return useQuery({
-    queryKey: ['places', id],
+    queryKey: ['place', id],
     queryFn: () => getPlaceById(id as string),
     enabled: !!id,
   });

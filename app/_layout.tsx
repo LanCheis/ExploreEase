@@ -9,10 +9,18 @@ import 'react-native-reanimated';
 
 import '../global.css';
 
+import { getPlacesPage } from '@/lib/places';
 import { useColorScheme } from '@/components/useColorScheme';
 import { isProfileComplete, useAuthStore } from '@/stores/auth';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      retry: 1,
+    },
+  },
+});
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -34,6 +42,15 @@ export default function RootLayout() {
   }, [error]);
 
   useEffect(() => {
+    // Prefetch the default discover view in parallel with auth so data is
+    // ready the moment the screen mounts, instead of waiting for auth first.
+    queryClient.prefetchInfiniteQuery({
+      queryKey: ['places', { category: 'attraction', sort: 'relevance' }],
+      queryFn: ({ pageParam }) =>
+        getPlacesPage({ category: 'attraction', sort: 'relevance', page: pageParam as number }),
+      initialPageParam: 0,
+    });
+
     let unsub: (() => void) | undefined;
     useAuthStore
       .getState()
