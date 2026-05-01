@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
-import { getPlaceById, getPlacesPage } from '@/lib/places';
+import { getPlaceById, getPlacesForMap, getPlacesPage } from '@/lib/places';
 import type { PlacesQueryParams } from '@/lib/places';
 
 export function usePlacesInfinite(params: Omit<PlacesQueryParams, 'page'>) {
@@ -17,5 +17,13 @@ export function usePlace(id: string | undefined) {
     queryKey: ['place', id],
     queryFn: () => getPlaceById(id as string),
     enabled: !!id,
+  });
+}
+
+export function usePlacesForMap() {
+  return useQuery({
+    queryKey: ['places-map'],
+    queryFn: getPlacesForMap,
+    staleTime: 5 * 60 * 1000,
   });
 }

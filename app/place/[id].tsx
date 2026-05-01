@@ -1,7 +1,8 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
+import MiniMap from '@/components/MiniMap';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/useFavorites';
 import { usePlace } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/auth';
@@ -72,6 +73,7 @@ export default function PlaceDetailScreen() {
         ) : (
           <View className="h-64 w-full bg-slate-100" />
         )}
+        <MiniMap lat={place.lat} lng={place.lng} name={place.name} />
         <View className="gap-3 p-4">
           <View className="flex-row items-center justify-between">
             <View className="rounded-md bg-blue-50 px-2 py-0.5">
@@ -91,6 +93,20 @@ export default function PlaceDetailScreen() {
           ) : null}
           {place.description ? (
             <Text className="text-base leading-6 text-slate-700">{place.description}</Text>
+          ) : null}
+          {place.lat != null && place.lng != null ? (
+            <Pressable
+              onPress={() => {
+                const url =
+                  Platform.OS === 'web'
+                    ? `https://maps.google.com/?q=${encodeURIComponent(place.name)}&ll=${place.lat},${place.lng}`
+                    : `geo:${place.lat},${place.lng}?q=${place.lat},${place.lng}(${encodeURIComponent(place.name)})`;
+                Linking.openURL(url);
+              }}
+              className="items-center rounded-lg bg-blue-600 px-4 py-3"
+            >
+              <Text className="font-semibold text-white">Get Directions</Text>
+            </Pressable>
           ) : null}
         </View>
       </ScrollView>

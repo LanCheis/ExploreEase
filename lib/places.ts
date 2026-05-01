@@ -109,3 +109,19 @@ export async function removeFavorite(userId: string, placeId: string): Promise<v
     .eq('place_id', placeId);
   if (error) throw error;
 }
+
+export interface PlaceMapPin {
+  id: string;
+  name: string;
+  lat: number | null;
+  lng: number | null;
+}
+
+export async function getPlacesForMap(): Promise<PlaceMapPin[]> {
+  const { data, error } = await supabase
+    .from('places')
+    .select('id, name, lat, lng')
+    .order('name');
+  if (error) throw error;
+  return (data ?? []) as PlaceMapPin[];
+}
