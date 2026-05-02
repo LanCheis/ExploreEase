@@ -8,6 +8,7 @@ import type { FilterState } from '@/components/FilterBar';
 import { PlaceCard } from '@/components/PlaceCard';
 import { SearchBar } from '@/components/SearchBar';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/useFavorites';
+import { useEffectiveLocation } from '@/hooks/useLocation';
 import { usePlacesInfinite } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/auth';
 import type { PlaceCategory } from '@/types/place';
@@ -19,6 +20,10 @@ export default function DiscoverScreen() {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
+  const effectiveLocation = useEffectiveLocation();
+  const nearLat = filters.sort === 'nearby' ? (effectiveLocation?.lat ?? undefined) : undefined;
+  const nearLng = filters.sort === 'nearby' ? (effectiveLocation?.lng ?? undefined) : undefined;
+
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
     usePlacesInfinite({
       category,
@@ -26,6 +31,8 @@ export default function DiscoverScreen() {
       minRating: filters.minRating,
       maxPriceLevel: filters.maxPriceLevel,
       sort: filters.sort,
+      nearLat,
+      nearLng,
     });
 
   const { data: favoriteIds = [] } = useFavoriteIds();

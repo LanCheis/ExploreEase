@@ -6,9 +6,23 @@ export interface PlacesQueryParams {
   search?: string;
   minRating?: number;
   maxPriceLevel?: number;
-  sort?: 'relevance' | 'top-rated' | 'a-z';
+  sort?: 'relevance' | 'top-rated' | 'a-z' | 'nearby';
+  nearLat?: number;
+  nearLng?: number;
   page: number;
   pageSize?: number;
+}
+
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 export interface PlacesPage {
@@ -23,6 +37,8 @@ export async function getPlacesPage(params: PlacesQueryParams): Promise<PlacesPa
     minRating,
     maxPriceLevel,
     sort = 'relevance',
+    nearLat,
+    nearLng,
     page,
     pageSize = 10,
   } = params;
@@ -50,6 +66,19 @@ export async function getPlacesPage(params: PlacesQueryParams): Promise<PlacesPa
   if (error) throw error;
 
   const rows = (data ?? []) as Place[];
+
+  if (sort === 'nearby' && nearLat != null && nearLng != null) {
+    const refLat = nearLat;
+    const refLng = nearLng;
+    rows.sort((a, b) => {
+      const dA =
+        a.lat != null && a.lng != null ? haversine(refLat, refLng, a.lat, a.lng) : Infinity;
+      const dB =
+        b.lat != null && b.lng != null ? haversine(refLat, refLng, b.lat, b.lng) : Infinity;
+      return dA - dB;
+    });
+  }
+
   return {
     data: rows,
     nextPage: rows.length === pageSize ? page + 1 : null,
@@ -113,6 +142,7 @@ export async function removeFavorite(userId: string, placeId: string): Promise<v
 export interface PlaceMapPin {
   id: string;
   name: string;
+  category: string;
   lat: number | null;
   lng: number | null;
 }
@@ -120,7 +150,7 @@ export interface PlaceMapPin {
 export async function getPlacesForMap(): Promise<PlaceMapPin[]> {
   const { data, error } = await supabase
     .from('places')
-    .select('id, name, lat, lng')
+    .select('id, name, category, lat, lng')
     .order('name');
   if (error) throw error;
   return (data ?? []) as PlaceMapPin[];

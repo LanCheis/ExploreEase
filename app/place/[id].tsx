@@ -1,10 +1,30 @@
+import { useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Image, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 
 import MiniMap from '@/components/MiniMap';
+import { ReviewCard } from '@/components/ReviewCard';
+import { ReviewForm } from '@/components/ReviewForm';
+import { StarRating } from '@/components/StarRating';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/useFavorites';
 import { usePlace } from '@/hooks/usePlaces';
+import {
+  useFlagReview,
+  useMyHelpfulIds,
+  useRatingDistribution,
+  useReviewsInfinite,
+  useToggleHelpful,
+} from '@/hooks/useReviews';
 import { useAuthStore } from '@/stores/auth';
 import type { PlaceCategory } from '@/types/place';
 
@@ -21,7 +41,24 @@ export default function PlaceDetailScreen() {
   const { data: favoriteIds = [] } = useFavoriteIds();
   const { mutate: toggleFavorite } = useToggleFavorite();
 
+  const [reviewSort, setReviewSort] = useState<'newest' | 'top' | 'helpful'>('newest');
+  const [showForm, setShowForm] = useState(false);
+
+  const {
+    data: reviewsData,
+    isLoading: reviewsLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useReviewsInfinite(id ?? '', reviewSort);
+  const { data: dist } = useRatingDistribution(id ?? '');
+  const { data: helpfulIds = [] } = useMyHelpfulIds(userId);
+  const { mutate: doToggleHelpful } = useToggleHelpful(id ?? '');
+  const { mutate: doFlagReview } = useFlagReview(id ?? '');
+
   const isFavorite = !!id && favoriteIds.includes(id);
+  const reviews = reviewsData?.pages.flatMap((p) => p.data) ?? [];
+  const distTotal = Object.values(dist ?? {}).reduce((s, v) => s + v, 0);
 
   if (isLoading) {
     return (
@@ -109,7 +146,167 @@ export default function PlaceDetailScreen() {
             </Pressable>
           ) : null}
         </View>
+
+        {/* Reviews section */}
+        <View style={{ padding: 16, gap: 16 }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#0f172a' }}>Reviews</Text>
+
+          {/* Rating summary */}
+          <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+            <View style={{ alignItems: 'center', minWidth: 56 }}>
+              <Text style={{ fontSize: 36, fontWeight: '800', color: '#0f172a' }}>
+                {place.rating != null ? place.rating.toFixed(1) : '—'}
+              </Text>
+              {place.rating != null ? (
+                <StarRating value={Math.round(place.rating)} size={12} />
+              ) : null}
+            </View>
+            <View style={{ flex: 1, gap: 3 }}>
+              {[5, 4, 3, 2, 1].map((star) => {
+                const count = dist?.[star] ?? 0;
+                const pct = distTotal > 0 ? count / distTotal : 0;
+                return (
+                  <View
+                    key={star}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                  >
+                    <Text style={{ fontSize: 11, color: '#64748b', width: 8 }}>{star}</Text>
+                    <View
+                      style={{
+                        flex: 1,
+                        height: 6,
+                        backgroundColor: '#f1f5f9',
+                        borderRadius: 3,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: `${Math.round(pct * 100)}%`,
+                          height: '100%',
+                          backgroundColor: '#f59e0b',
+                          borderRadius: 3,
+                        }}
+                      />
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        color: '#94a3b8',
+                        width: 18,
+                        textAlign: 'right',
+                      }}
+                    >
+                      {count}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Sort chips */}
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            {(['newest', 'top', 'helpful'] as const).map((s) => (
+              <Pressable
+                key={s}
+                onPress={() => setReviewSort(s)}
+                style={{
+                  borderRadius: 20,
+                  paddingHorizontal: 12,
+                  paddingVertical: 5,
+                  backgroundColor: reviewSort === s ? '#2563eb' : '#f1f5f9',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '500',
+                    color: reviewSort === s ? 'white' : '#64748b',
+                  }}
+                >
+                  {s === 'newest' ? 'Newest' : s === 'top' ? 'Top rated' : 'Most helpful'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Write a review */}
+          {userId ? (
+            <Pressable
+              onPress={() => setShowForm(true)}
+              style={{
+                borderWidth: 1,
+                borderColor: '#2563eb',
+                borderRadius: 8,
+                padding: 12,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: '#2563eb', fontWeight: '600', fontSize: 14 }}>
+                Write a Review
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {/* Review list */}
+          {reviewsLoading ? (
+            <ActivityIndicator style={{ paddingVertical: 16 }} />
+          ) : (
+            <>
+              {reviews.length === 0 ? (
+                <Text
+                  style={{
+                    textAlign: 'center',
+                    fontSize: 13,
+                    color: '#94a3b8',
+                    paddingVertical: 16,
+                  }}
+                >
+                  No reviews yet. Be the first!
+                </Text>
+              ) : (
+                reviews.map((r) => (
+                  <ReviewCard
+                    key={r.id}
+                    review={r}
+                    currentUserId={userId}
+                    helpfulByMe={helpfulIds.includes(r.id)}
+                    onHelpful={() => {
+                      if (userId) doToggleHelpful({ reviewId: r.id, userId });
+                    }}
+                    onFlag={() => {
+                      if (userId) doFlagReview(r.id);
+                    }}
+                  />
+                ))
+              )}
+              {hasNextPage ? (
+                <Pressable
+                  onPress={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  style={{ alignItems: 'center', paddingVertical: 8 }}
+                >
+                  {isFetchingNextPage ? (
+                    <ActivityIndicator />
+                  ) : (
+                    <Text style={{ color: '#2563eb', fontSize: 13, fontWeight: '500' }}>
+                      Load more
+                    </Text>
+                  )}
+                </Pressable>
+              ) : reviews.length > 0 ? (
+                <Text style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>
+                  No more reviews
+                </Text>
+              ) : null}
+            </>
+          )}
+        </View>
       </ScrollView>
+
+      {showForm ? (
+        <ReviewForm placeId={id ?? ''} onClose={() => setShowForm(false)} />
+      ) : null}
     </>
   );
 }

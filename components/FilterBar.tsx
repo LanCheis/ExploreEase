@@ -1,7 +1,9 @@
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useEffectiveLocation, useLocationStore } from '@/hooks/useLocation';
+
 export interface FilterState {
-  sort: 'relevance' | 'top-rated' | 'a-z';
+  sort: 'relevance' | 'top-rated' | 'a-z' | 'nearby';
   maxPriceLevel: number | undefined;
   minRating: number | undefined;
 }
@@ -43,22 +45,34 @@ interface Props {
 }
 
 export function FilterBar({ value, onChange }: Props) {
+  const effectiveLocation = useEffectiveLocation();
+  const requestLocation = useLocationStore((s) => s.requestLocation);
+
   const hasFilters =
     value.sort !== 'relevance' ||
     value.maxPriceLevel !== undefined ||
     value.minRating !== undefined;
 
   return (
+    <View style={{ gap: 4 }}>
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ gap: 6, alignItems: 'center', paddingRight: 16 }}
     >
       <Text className="text-xs font-semibold text-slate-400">Sort</Text>
-      {(['relevance', 'top-rated', 'a-z'] as const).map((s) => (
+      {(['relevance', 'top-rated', 'a-z', 'nearby'] as const).map((s) => (
         <Chip
           key={s}
-          label={s === 'a-z' ? 'A–Z' : s === 'top-rated' ? 'Top rated' : 'Relevance'}
+          label={
+            s === 'a-z'
+              ? 'A–Z'
+              : s === 'top-rated'
+              ? 'Top rated'
+              : s === 'nearby'
+              ? 'Nearby'
+              : 'Relevance'
+          }
           active={value.sort === s}
           onPress={() => onChange({ ...value, sort: s })}
         />
@@ -104,5 +118,34 @@ export function FilterBar({ value, onChange }: Props) {
         </>
       )}
     </ScrollView>
+    {value.sort === 'nearby' && !effectiveLocation ? (
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingHorizontal: 4,
+          paddingTop: 2,
+        }}
+      >
+        <Text style={{ fontSize: 12, color: '#64748b', flex: 1 }}>
+          Enable location to sort by distance
+        </Text>
+        <Pressable
+          onPress={requestLocation}
+          style={{
+            borderRadius: 6,
+            backgroundColor: '#eff6ff',
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+          }}
+        >
+          <Text style={{ fontSize: 12, color: '#2563eb', fontWeight: '600' }}>
+            Request location
+          </Text>
+        </Pressable>
+      </View>
+    ) : null}
+    </View>
   );
 }
