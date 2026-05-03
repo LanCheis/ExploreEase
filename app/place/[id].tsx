@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { AddToItineraryButton } from '@/components/AddToItineraryButton';
 import MiniMap from '@/components/MiniMap';
 import { ReviewCard } from '@/components/ReviewCard';
 import { ReviewForm } from '@/components/ReviewForm';
@@ -144,6 +145,9 @@ export default function PlaceDetailScreen() {
             >
               <Text className="font-semibold text-white">Get Directions</Text>
             </Pressable>
+          ) : null}
+          {userId ? (
+            <AddToItineraryButton placeId={place.id} placeName={place.name} />
           ) : null}
         </View>
 

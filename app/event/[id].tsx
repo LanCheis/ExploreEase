@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { AddToItineraryButton } from '@/components/AddToItineraryButton';
 import MiniMap from '@/components/MiniMap';
 import { useEvent, useMyRsvpIds, useToggleRsvp } from '@/hooks/useEvents';
 import { useAuthStore } from '@/stores/auth';
@@ -202,6 +203,9 @@ export default function EventDetailScreen() {
               Sign in to RSVP
             </Text>
           )}
+          {userId ? (
+            <AddToItineraryButton eventId={event.id} eventTitle={event.title} />
+          ) : null}
         </View>
       </ScrollView>
     </>
