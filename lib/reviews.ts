@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { ReviewWithProfile } from '@/types/review';
+import type { ReviewReply, ReviewWithProfile } from '@/types/review';
 
 export interface ReviewsQueryParams {
   page: number;
@@ -22,8 +22,7 @@ export async function getReviewsForPlace(
   let query = supabase
     .from('reviews')
     .select('*, profiles(display_name, avatar_url)')
-    .eq('place_id', placeId)
-    .eq('is_flagged', false);
+    .eq('place_id', placeId);
 
   if (sort === 'newest') query = query.order('created_at', { ascending: false });
   else if (sort === 'top') query = query.order('rating', { ascending: false });
@@ -49,6 +48,9 @@ export async function submitReview({
   text: string;
   photoUri?: string;
 }): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
   const reviewId = crypto.randomUUID();
   let photoUrl: string | null = null;
   if (photoUri) {
@@ -57,6 +59,7 @@ export async function submitReview({
   const { error } = await supabase.from('reviews').insert({
     id: reviewId,
     place_id: placeId,
+    user_id: user.id,
     rating,
     text,
     photo_url: photoUrl,
@@ -87,11 +90,59 @@ export async function toggleHelpful(reviewId: string, userId: string): Promise<v
   }
 }
 
-export async function flagReview(reviewId: string): Promise<void> {
+export async function editReview(reviewId: string, rating: number, text: string): Promise<void> {
   const { error } = await supabase
     .from('reviews')
-    .update({ is_flagged: true })
+    .update({ rating, text })
     .eq('id', reviewId);
+  if (error) throw error;
+}
+
+export async function deleteOwnReview(reviewId: string): Promise<void> {
+  const { error } = await supabase.from('reviews').delete().eq('id', reviewId);
+  if (error) throw error;
+}
+
+export async function flagReview(reviewId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('flag_review', { p_review_id: reviewId, p_reason: reason });
+  if (error) throw error;
+}
+
+export async function getMyReviewForPlace(
+  placeId: string,
+  userId: string
+): Promise<ReviewWithProfile | null> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*, profiles(display_name, avatar_url)')
+    .eq('place_id', placeId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as ReviewWithProfile | null;
+}
+
+export async function getReviewReplies(reviewId: string): Promise<ReviewReply[]> {
+  const { data, error } = await supabase
+    .from('review_replies')
+    .select('*, profiles(display_name, avatar_url)')
+    .eq('review_id', reviewId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as ReviewReply[];
+}
+
+export async function submitReply(reviewId: string, text: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  const { error } = await supabase
+    .from('review_replies')
+    .insert({ review_id: reviewId, user_id: user.id, text });
+  if (error) throw error;
+}
+
+export async function deleteOwnReply(replyId: string): Promise<void> {
+  const { error } = await supabase.from('review_replies').delete().eq('id', replyId);
   if (error) throw error;
 }
 

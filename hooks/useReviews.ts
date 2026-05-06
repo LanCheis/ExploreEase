@@ -1,10 +1,16 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  deleteOwnReply,
+  deleteOwnReview,
+  editReview,
   flagReview,
   getMyHelpfulIds,
+  getMyReviewForPlace,
   getRatingDistribution,
+  getReviewReplies,
   getReviewsForPlace,
+  submitReply,
   submitReview,
   toggleHelpful,
 } from '@/lib/reviews';
@@ -63,8 +69,68 @@ export function useToggleHelpful(placeId: string) {
 export function useFlagReview(placeId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (reviewId: string) => flagReview(reviewId),
+    mutationFn: ({ reviewId, reason }: { reviewId: string; reason: string }) =>
+      flagReview(reviewId, reason),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['reviews', placeId] }),
-    onError: () => {}, // RLS blocks non-admin flags until FR-11
+  });
+}
+
+export function useMyReviewForPlace(placeId: string, userId?: string) {
+  return useQuery({
+    queryKey: ['my-review', placeId, userId],
+    queryFn: () => getMyReviewForPlace(placeId, userId!),
+    enabled: !!placeId && !!userId,
+  });
+}
+
+export function useEditReview(placeId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ reviewId, rating, text }: { reviewId: string; rating: number; text: string }) =>
+      editReview(reviewId, rating, text),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reviews', placeId] });
+      qc.invalidateQueries({ queryKey: ['place', placeId] });
+      qc.invalidateQueries({ queryKey: ['rating-dist', placeId] });
+      qc.invalidateQueries({ queryKey: ['my-review', placeId] });
+    },
+  });
+}
+
+export function useDeleteOwnReview(placeId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reviewId: string) => deleteOwnReview(reviewId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reviews', placeId] });
+      qc.invalidateQueries({ queryKey: ['place', placeId] });
+      qc.invalidateQueries({ queryKey: ['rating-dist', placeId] });
+      qc.invalidateQueries({ queryKey: ['my-review', placeId] });
+    },
+  });
+}
+
+export function useReviewReplies(reviewId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['replies', reviewId],
+    queryFn: () => getReviewReplies(reviewId),
+    enabled: !!reviewId && enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useSubmitReply(reviewId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ text }: { reviewId: string; text: string }) => submitReply(reviewId, text),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['replies', reviewId] }),
+  });
+}
+
+export function useDeleteReply(reviewId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (replyId: string) => deleteOwnReply(replyId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['replies', reviewId] }),
   });
 }

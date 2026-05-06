@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   Pressable,
@@ -15,7 +14,7 @@ import {
 import { z } from 'zod';
 
 import { StarRating } from '@/components/StarRating';
-import { useSubmitReview } from '@/hooks/useReviews';
+import { useEditReview, useSubmitReview } from '@/hooks/useReviews';
 
 const schema = z.object({
   rating: z.number().min(1, 'Select a rating'),
@@ -26,11 +25,17 @@ type FormData = z.infer<typeof schema>;
 interface Props {
   placeId: string;
   onClose: () => void;
+  reviewId?: string;
+  initialRating?: number;
+  initialText?: string;
 }
 
-export function ReviewForm({ placeId, onClose }: Props) {
+export function ReviewForm({ placeId, onClose, reviewId, initialRating, initialText }: Props) {
   const [photoUri, setPhotoUri] = useState<string | undefined>();
-  const { mutateAsync, isPending } = useSubmitReview(placeId);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const { mutateAsync: submitMutate, isPending: submitPending } = useSubmitReview(placeId);
+  const { mutateAsync: editMutate, isPending: editPending } = useEditReview(placeId);
+  const isPending = submitPending || editPending;
 
   const {
     control,
@@ -39,7 +44,7 @@ export function ReviewForm({ placeId, onClose }: Props) {
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { rating: 0, text: '' },
+    defaultValues: { rating: initialRating ?? 0, text: initialText ?? '' },
   });
 
   const rating = watch('rating');
@@ -56,11 +61,16 @@ export function ReviewForm({ placeId, onClose }: Props) {
   };
 
   const onSubmit = async (data: FormData) => {
+    setSubmitError(null);
     try {
-      await mutateAsync({ placeId, rating: data.rating, text: data.text, photoUri });
+      if (reviewId) {
+        await editMutate({ reviewId, rating: data.rating, text: data.text });
+      } else {
+        await submitMutate({ placeId, rating: data.rating, text: data.text, photoUri });
+      }
       onClose();
     } catch (e) {
-      Alert.alert('Error', (e as Error).message ?? 'Failed to submit review.');
+      setSubmitError((e as Error).message ?? 'Failed to submit review.');
     }
   };
 
@@ -86,7 +96,7 @@ export function ReviewForm({ placeId, onClose }: Props) {
             }}
           >
             <Text style={{ fontSize: 18, fontWeight: '700', color: '#0f172a' }}>
-              Write a Review
+              {reviewId ? 'Edit Review' : 'Write a Review'}
             </Text>
             <Pressable onPress={onClose} hitSlop={8}>
               <Text style={{ fontSize: 18, color: '#64748b' }}>✕</Text>
@@ -137,7 +147,7 @@ export function ReviewForm({ placeId, onClose }: Props) {
             )}
           />
 
-          <View style={{ gap: 8 }}>
+          {!reviewId ? <View style={{ gap: 8 }}>
             <Pressable
               onPress={pickPhoto}
               style={{
@@ -160,7 +170,13 @@ export function ReviewForm({ placeId, onClose }: Props) {
                 resizeMode="cover"
               />
             ) : null}
-          </View>
+          </View> : null}
+
+          {submitError ? (
+            <Text style={{ fontSize: 13, color: '#e11d48', textAlign: 'center' }}>
+              {submitError}
+            </Text>
+          ) : null}
 
           <Pressable
             onPress={handleSubmit(onSubmit)}

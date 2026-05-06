@@ -1,25 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { addRsvp, getEventById, getEventsPage, getMyRsvpIds, removeRsvp } from '@/lib/events';
 import type { EventsQueryParams } from '@/lib/events';
+import { notifyInApp, scheduleLocal } from '@/lib/notifications';
 import { useAuthStore } from '@/stores/auth';
 import type { Event } from '@/types/event';
 
 async function scheduleRsvpReminder(event: Event): Promise<void> {
-  if (Platform.OS === 'web') return;
-  const triggerMs = new Date(event.start_time).getTime() - 60 * 60 * 1000;
-  const secondsUntil = Math.floor((triggerMs - Date.now()) / 1000);
-  if (secondsUntil <= 0) return;
-  const { status } = await Notifications.requestPermissionsAsync();
-  if (status !== 'granted') return;
-  const id = await Notifications.scheduleNotificationAsync({
-    content: { title: 'Event starting soon', body: `${event.title} starts in 1 hour` },
-    trigger: { seconds: secondsUntil },
+  const triggerDate = new Date(new Date(event.start_time).getTime() - 60 * 60 * 1000);
+  const id = await scheduleLocal({
+    title: 'Event starting soon',
+    body: `${event.title} starts in 1 hour`,
+    triggerDate,
   });
-  await AsyncStorage.setItem(`rsvp_notif_${event.id}`, id);
+  if (id) await AsyncStorage.setItem(`rsvp_notif_${event.id}`, id);
 }
 
 export function useEventsInfinite(params: Omit<EventsQueryParams, 'page'>) {
@@ -60,6 +55,13 @@ export function useToggleRsvp() {
         await removeRsvp(userId, event.id);
       } else {
         await addRsvp(userId, event.id);
+        await notifyInApp({
+          userId,
+          category: 'alert',
+          title: `You're going to ${event.title}`,
+          body: event.location ?? undefined,
+          data: { deeplink: `/event/${event.id}` },
+        });
         await scheduleRsvpReminder(event);
       }
     },

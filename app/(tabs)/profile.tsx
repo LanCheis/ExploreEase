@@ -1,4 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Link } from 'expo-router';
 import { ComponentProps, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -82,6 +83,14 @@ export default function ProfileScreen() {
             <FontAwesome name="pencil" size={14} color="white" />
             <Text className="text-base font-semibold text-white">Edit profile</Text>
           </Pressable>
+          {profile?.is_admin && (
+            <Link href="/admin" asChild>
+              <Pressable className="h-12 flex-row items-center justify-center gap-2 rounded-lg bg-purple-600">
+                <FontAwesome name="shield" size={14} color="white" />
+                <Text className="text-base font-semibold text-white">Admin Dashboard</Text>
+              </Pressable>
+            </Link>
+          )}
           <Pressable
             onPress={signOut}
             className="h-12 flex-row items-center justify-center gap-2 rounded-lg bg-slate-100"

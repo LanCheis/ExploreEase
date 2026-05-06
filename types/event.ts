@@ -1,4 +1,5 @@
 export type EventCategory = 'general' | 'food' | 'music' | 'sports' | 'arts' | 'festival';
+export type EventStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Event {
   id: string;
@@ -13,5 +14,6 @@ export interface Event {
   max_attendees: number | null;
   image_url: string | null;
   attendee_count: number;
+  status: EventStatus;
   created_at: string;
 }

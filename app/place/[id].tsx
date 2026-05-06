@@ -20,13 +20,16 @@ import { StarRating } from '@/components/StarRating';
 import { useFavoriteIds, useToggleFavorite } from '@/hooks/useFavorites';
 import { usePlace } from '@/hooks/usePlaces';
 import {
+  useDeleteOwnReview,
   useFlagReview,
   useMyHelpfulIds,
+  useMyReviewForPlace,
   useRatingDistribution,
   useReviewsInfinite,
   useToggleHelpful,
 } from '@/hooks/useReviews';
 import { useAuthStore } from '@/stores/auth';
+import type { ReviewWithProfile } from '@/types/review';
 import type { PlaceCategory } from '@/types/place';
 
 const CATEGORY_LABEL: Record<PlaceCategory, string> = {
@@ -44,6 +47,7 @@ export default function PlaceDetailScreen() {
 
   const [reviewSort, setReviewSort] = useState<'newest' | 'top' | 'helpful'>('newest');
   const [showForm, setShowForm] = useState(false);
+  const [editingReview, setEditingReview] = useState<ReviewWithProfile | null>(null);
 
   const {
     data: reviewsData,
@@ -56,6 +60,8 @@ export default function PlaceDetailScreen() {
   const { data: helpfulIds = [] } = useMyHelpfulIds(userId);
   const { mutate: doToggleHelpful } = useToggleHelpful(id ?? '');
   const { mutate: doFlagReview } = useFlagReview(id ?? '');
+  const { mutate: doDeleteOwnReview } = useDeleteOwnReview(id ?? '');
+  const { data: myReview } = useMyReviewForPlace(id ?? '', userId);
 
   const isFavorite = !!id && favoriteIds.includes(id);
   const reviews = reviewsData?.pages.flatMap((p) => p.data) ?? [];
@@ -234,22 +240,39 @@ export default function PlaceDetailScreen() {
             ))}
           </View>
 
-          {/* Write a review */}
+          {/* Write / Edit a review */}
           {userId ? (
-            <Pressable
-              onPress={() => setShowForm(true)}
-              style={{
-                borderWidth: 1,
-                borderColor: '#2563eb',
-                borderRadius: 8,
-                padding: 12,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: '#2563eb', fontWeight: '600', fontSize: 14 }}>
-                Write a Review
-              </Text>
-            </Pressable>
+            myReview ? (
+              <Pressable
+                onPress={() => setEditingReview(myReview)}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#2563eb',
+                  borderRadius: 8,
+                  padding: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: '#2563eb', fontWeight: '600', fontSize: 14 }}>
+                  Edit your Review
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => setShowForm(true)}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#2563eb',
+                  borderRadius: 8,
+                  padding: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: '#2563eb', fontWeight: '600', fontSize: 14 }}>
+                  Write a Review
+                </Text>
+              </Pressable>
+            )
           ) : null}
 
           {/* Review list */}
@@ -278,9 +301,11 @@ export default function PlaceDetailScreen() {
                     onHelpful={() => {
                       if (userId) doToggleHelpful({ reviewId: r.id, userId });
                     }}
-                    onFlag={() => {
-                      if (userId) doFlagReview(r.id);
+                    onFlag={(reason) => {
+                      if (userId) doFlagReview({ reviewId: r.id, reason });
                     }}
+                    onEdit={() => setEditingReview(r)}
+                    onDelete={() => doDeleteOwnReview(r.id)}
                   />
                 ))
               )}
@@ -308,8 +333,14 @@ export default function PlaceDetailScreen() {
         </View>
       </ScrollView>
 
-      {showForm ? (
-        <ReviewForm placeId={id ?? ''} onClose={() => setShowForm(false)} />
+      {showForm || editingReview ? (
+        <ReviewForm
+          placeId={id ?? ''}
+          onClose={() => { setShowForm(false); setEditingReview(null); }}
+          reviewId={editingReview?.id}
+          initialRating={editingReview?.rating}
+          initialText={editingReview?.text}
+        />
       ) : null}
     </>
   );
